@@ -184,6 +184,46 @@ class TestReplaceVariableReferences:
         replaced = replace_variable_references(config)
         assert config == replaced
 
+    def test_variable_reference_from_array(self):
+        config = {
+            collections.CompoundKey(["a"]): "foo",
+            collections.CompoundKey(["b"]): ["${a}", "${a}", "${a}"],
+        }
+
+        replaced = replace_variable_references(config)
+        assert replaced[collections.CompoundKey(["b"])] == [
+            replaced[collections.CompoundKey(["a"])],
+            replaced[collections.CompoundKey(["a"])],
+            replaced[collections.CompoundKey(["a"])],
+        ]
+
+    def test_array_replacement_missing_variable(self):
+        config = {
+            collections.CompoundKey(["a"]): "foo",
+            collections.CompoundKey(["b"]): ["${a}", "${a}", "${c}"],
+        }
+
+        replaced = replace_variable_references(config)
+
+        assert replaced[collections.CompoundKey(["b"])] == [
+            replaced[collections.CompoundKey(["a"])],
+            replaced[collections.CompoundKey(["a"])],
+            "",
+        ]
+
+    def test_array_replacement_nested_variable(self):
+        config = {
+            collections.CompoundKey(["a", "c"]): "foo",
+            collections.CompoundKey(["b"]): ["${a.c}", "${a.c}", "${a.c}"],
+        }
+
+        replaced = replace_variable_references(config)
+        assert replaced[collections.CompoundKey(["b"])] == [
+            replaced[collections.CompoundKey(["a", "c"])],
+            replaced[collections.CompoundKey(["a", "c"])],
+            replaced[collections.CompoundKey(["a", "c"])],
+        ]
+
 
 class TestStringToType:
     @pytest.mark.parametrize(
