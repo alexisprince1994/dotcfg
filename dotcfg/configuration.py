@@ -62,6 +62,36 @@ def replace_variable_references(flat_config: dict) -> dict:
             replaces variable references with the values
             existing elsewhere in the configuration
     """
+
+    def check_and_replace(flat_config: dict, value: str) -> str:
+        match = INTERPOLATION_REGEX.search(value)
+        if not match:
+            return None
+
+        # the matched_string includes "${}"; the matched_key is just the inner value
+        matched_string = match.group(0)
+        matched_key = match.group(1)
+
+        # get the referenced key from the config value
+        ref_key = collections.CompoundKey(matched_key.split("."))
+        # get the value corresponding to the referenced key
+        ref_value = flat_config.get(ref_key, "")
+
+        # The configuration's value was just a reference and nothing else
+        if value == matched_string:
+            return ref_value
+
+        # The reference wasn't a valid reference, so to maintain consistency
+        # with the rest of the config API, a missing reference returns an
+        # empty string
+
+        # The value could either have multiple references, or
+        # be used to interpolate a larger string, such
+        # as a database URI or API request header
+        # Ex1) "postgresql+psycopg2://${username}:${password}@{host}:${port}/${dbname}"
+        # Ex2) "Bearer ${api_token}"
+        return value.replace(matched_string, str(ref_value), 1)
+
     output = flat_config.copy()
     keys_to_check = set(output.keys())
 
@@ -72,33 +102,46 @@ def replace_variable_references(flat_config: dict) -> dict:
 
         # iterate over every key and value to check if the value uses variable references
         for k in list(keys_to_check):
+            value = output[k]
+            # Only removing from `keys_to_check` when the value
+            # can't possibly be a reference (not a string) or when
+            # there's no match, because we'll eventually run out of references
+            # since we're iteratively replacing 10 times.
 
             # if the value isn't a string, it can't be a reference, so we exit
-            if not isinstance(output[k], str):
+            if not isinstance(value, (str, list)):
                 keys_to_check.remove(k)
                 continue
 
-            # see if the ${...} syntax was used in the value and exit if it wasn't
-            match = INTERPOLATION_REGEX.search(output[k])
-            if not match:
-                keys_to_check.remove(k)
-                continue
-
-            # the matched_string includes "${}"; the matched_key is just the inner value
-            matched_string = match.group(0)
-            matched_key = match.group(1)
-
-            # get the referenced key from the config value
-            ref_key = collections.CompoundKey(matched_key.split("."))
-            # get the value corresponding to the referenced key
-            ref_value = output.get(ref_key, "")
-
-            # if the matched was the entire value, replace it with the interpolated value
-            if output[k] == matched_string:
-                output[k] = ref_value
-            # if it was a partial match, then drop the interpolated value into the string
+            if isinstance(value, str):
+                new_value = check_and_replace(flat_config=flat_config, value=value)
+                # None specifically means there was no regex match, so a regular string
+                # (not a reference to a missing key)
+                if new_value is None:
+                    keys_to_check.remove(k)
+                    continue
             else:
-                output[k] = output[k].replace(matched_string, str(ref_value), 1)
+                new_value = []
+                for item in value:
+                    if not isinstance(item, str):
+                        new_value.append(item)
+                        continue
+
+                    interpolated = check_and_replace(flat_config=output, value=item)
+                    # Explicit None check because we need to append empty strings
+                    # that denote correct variable lookup syntax but missing
+                    # reference
+                    if interpolated is not None:
+                        new_value.append(interpolated)
+                    else:
+                        new_value.append(item)
+
+                # Only remove from the interation once the
+                # values are the same before and after replacing
+                if value == new_value:
+                    keys_to_check.remove(k)
+
+            output[k] = new_value
 
     return output
 
