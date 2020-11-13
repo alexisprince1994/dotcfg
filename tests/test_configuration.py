@@ -1,7 +1,9 @@
 import os
 import tempfile
+from typing import cast
 
 import pytest
+
 from dotcfg import collections
 from dotcfg.configuration import (
     interpolate_env_vars,
@@ -38,7 +40,7 @@ def env(monkeypatch):
 def testing_config(env):
     project_name = os.environ.get("PROJECT_NAME")
     file_path = os.path.expanduser(
-        os.path.expandvars(os.environ.get(f"{project_name}__TESTING_CONFIG_PATH"))
+        os.path.expandvars(os.environ[f"{project_name}__TESTING_CONFIG_PATH"])
     )
 
     testing_cfg = b"""
@@ -326,7 +328,7 @@ class TestInterpolateEnvVars:
     )
     def test_does_nothing_if_doesnt_need_interpolation(self, regular_value: str):
 
-        result = interpolate_env_vars(regular_value)
+        result = cast(str, interpolate_env_vars(regular_value))
         assert result == regular_value
 
     def test_expands_variables(self, testing_config):
@@ -335,7 +337,7 @@ class TestInterpolateEnvVars:
             f"{os.environ.get('PROJECT_NAME')}__TESTING_CONFIG_PATH"
         )
         home = os.environ.get("HOME")
-        result = interpolate_env_vars(testing_config_path)
+        result = cast(str, interpolate_env_vars(testing_config_path))
         assert "$HOME" not in result
         assert os.path.isfile(result)
 
@@ -346,6 +348,6 @@ class TestInterpolateEnvVars:
 
     def test_expands_multiple_variables(self):
 
-        result = interpolate_env_vars("$HOME/$PROJECT_NAME")
+        result = cast(str, interpolate_env_vars("$HOME/$PROJECT_NAME"))
         assert "$HOME" not in result
         assert "$PROJECT_NAME" not in result

@@ -1,7 +1,10 @@
+from typing import cast
+
 import pytest
 from box import Box
+
 from dotcfg import collections
-from dotcfg.collections import as_nested_dict, merge_dicts
+from dotcfg.collections import merge_dicts
 
 
 @pytest.fixture
@@ -56,34 +59,6 @@ def test_restore_flattened_dict_with_box_class():
     assert restored_Box.a == nested_dict.a
 
 
-def test_as_nested_dict_defaults_box():
-    orig_d = dict(a=1, b=[2, dict(c=3)], d=dict(e=[dict(f=4)]))
-    bx = as_nested_dict(orig_d)
-    assert isinstance(bx, Box)
-    assert bx.a == 1
-    assert bx.b[1].c == 3
-    assert bx.d.e[0].f == 4
-
-
-def test_as_nested_dict_works_with_box():
-
-    orig_d = Box(dict(a=1, b=[2, dict(c=3)], d=dict(e=[dict(f=4)])))
-    out_d = as_nested_dict(orig_d)
-    assert isinstance(out_d, dict)
-    assert out_d["a"] == 1
-    assert out_d["b"][1]["c"] == 3
-    assert out_d["d"]["e"][0]["f"] == 4
-
-
-def test_as_nested_dict_dct_class():
-    orig_d = dict(a=1, b=[2, dict(c=3)], d=dict(e=[dict(f=4)]))
-    box_d = as_nested_dict(orig_d, Box)
-    dict_d = as_nested_dict(box_d, dict)
-    print(f"Dict_d is: {dict_d}")
-    assert type(dict_d) is dict
-    assert type(dict_d["d"]["e"][0]) is dict
-
-
 @pytest.mark.parametrize("dct_class", [dict, Box])
 def test_merge_simple_dicts(dct_class):
     a = dct_class(x=1, y=2, z=3)
@@ -118,26 +93,3 @@ def test_merge_nested_dicts_with_empty_section(dct_class):
     assert merge_dicts(a, b) == a
     # merge a into b
     assert merge_dicts(b, a) == a
-
-
-def test_as_nested_dict_breaks_when_critical_keys_shadowed():
-    x = dict(update=1, items=2)
-    y = as_nested_dict(x, Box)
-    assert not isinstance(y.update, int)
-    assert not isinstance(y.items, int)
-    assert callable(y.update)
-    assert callable(y.items)
-
-
-@pytest.mark.parametrize("after", [dict, Box])
-@pytest.mark.parametrize("before", [dict, Box])
-def test_as_nested_dict_list_unboxed(before: type, after: type):
-
-    a = before(a=[before(b=10)], b="hello")
-    print(f"a is: {a}")
-
-    result = as_nested_dict(a, dct_class=after)
-
-    assert isinstance(result, after)
-
-    assert isinstance(result["a"][0], after)

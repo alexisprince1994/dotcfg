@@ -1,7 +1,7 @@
 import os
 import re
 from ast import literal_eval
-from typing import Any, Dict, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
 import toml
 
@@ -63,7 +63,7 @@ def replace_variable_references(flat_config: dict) -> dict:
             existing elsewhere in the configuration
     """
 
-    def check_and_replace(flat_config: dict, value: str) -> str:
+    def check_and_replace(flat_config: dict, value: str) -> Optional[str]:
         match = INTERPOLATION_REGEX.search(value)
         if not match:
             return None
@@ -120,11 +120,12 @@ def replace_variable_references(flat_config: dict) -> dict:
                 if new_value is None:
                     keys_to_check.remove(k)
                     continue
+                output[k] = new_value
             else:
-                new_value = []
+                new_values: List[Any] = []
                 for item in value:
                     if not isinstance(item, str):
-                        new_value.append(item)
+                        new_values.append(item)
                         continue
 
                     interpolated = check_and_replace(flat_config=output, value=item)
@@ -132,16 +133,18 @@ def replace_variable_references(flat_config: dict) -> dict:
                     # that denote correct variable lookup syntax but missing
                     # reference
                     if interpolated is not None:
-                        new_value.append(interpolated)
+                        new_values.append(interpolated)
                     else:
-                        new_value.append(item)
+                        new_values.append(item)
 
                 # Only remove from the interation once the
                 # values are the same before and after replacing
-                if value == new_value:
+                if value == new_values:
                     keys_to_check.remove(k)
 
-            output[k] = new_value
+                output[k] = new_values
+
+            # output[k] = new_value
 
     return output
 
@@ -180,7 +183,9 @@ def load_environment_variables(
     return flat_config
 
 
-def interpolate_env_vars(env_var: str) -> Optional[Union[bool, int, float, str]]:
+def interpolate_env_vars(
+    env_var: Optional[str],
+) -> Optional[Union[bool, int, float, str]]:
     """
     Expands (potentially nested) env vars by repeatedly applying
     `expandvars` and `expanduser` until interpolation stops having
