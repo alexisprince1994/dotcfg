@@ -3,7 +3,7 @@ Custom data types and functions for manipulating data types
 """
 
 from collections.abc import MutableMapping
-from typing import Iterable, Optional, Union
+from typing import Any, Iterable, List, Optional, Tuple, Union, cast
 
 from box import Box
 
@@ -75,7 +75,7 @@ def dict_to_flatdict(dct: dict, parent: CompoundKey = None) -> dict:
         - dict: A flattened dict
     """
 
-    items = []
+    items: List[Tuple[CompoundKey, Any]] = []
     parent = parent or CompoundKey()
     for k, v in dct.items():
         k_parent = CompoundKey(parent + (k,))
@@ -109,39 +109,3 @@ def flatdict_to_dict(dct: dict, dct_class: Optional[type] = None) -> MutableMapp
             result[k] = v
 
     return result
-
-
-def as_nested_dict(
-    obj: Union[DictLike, Iterable[DictLike]], dct_class: type = Box
-) -> Union[DictLike, Iterable[DictLike]]:
-    """
-    Given a obj formatted as a dictionary, transforms it (and any nested dictionaries)
-    into the provided dct_class
-
-    Args:
-        - obj (Any): An object that is formatted as a `dict`
-        - dct_class (type): the `dict` class to use (defaults to Box)
-
-    Returns:
-        - A `dict_class` representation of the object passed in
-    ```
-    """
-    if isinstance(obj, (list, tuple, set)):
-        return type(obj)([as_nested_dict(d, dct_class) for d in obj])
-
-    # Calling as_nested_dict on `Box` objects won't correctly
-    # transform boxes -> back to dicts, so we need to special case
-    # the boxes and call their `to_dict` method that handles
-    # the transformation back to `dict` for us, which automagically
-    # handles the recursion for us.
-    elif isinstance(obj, Box):
-        if dct_class is Box:
-            return obj
-        else:
-            return obj.to_dict()
-
-    elif isinstance(obj, dict):
-
-        return dct_class(**{k: as_nested_dict(v, dct_class) for k, v in obj.items()})
-
-    return obj
