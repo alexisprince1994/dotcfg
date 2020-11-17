@@ -23,6 +23,20 @@ def load_toml(path: str) -> dict:
 def interpolate_config(
     config: dict, env_var_prefix: Optional[str] = None
 ) -> collections.Config:
+    """
+    Processes the initial input configuration and replaces
+    system variables ($PROJECT_PATH, etc.) as well as our
+    custom variables ("${}" syntax).
+
+    Args:
+        - config (dict): Loaded data from a configuration file
+        - env_var_prefix (Optional[str]): Environment variable prefix to
+            load from the current environment.
+
+    Returns:
+        - collections.Config: Configuration object with values populated
+            and accessible via dot notation or dictionary notation.
+    """
 
     # Toml & other file formats support nested
     # dictionaries, so we need to flatten them out
@@ -144,8 +158,6 @@ def replace_variable_references(flat_config: dict) -> dict:
 
                 output[k] = new_values
 
-            # output[k] = new_value
-
     return output
 
 
@@ -190,6 +202,14 @@ def interpolate_env_vars(
     Expands (potentially nested) env vars by repeatedly applying
     `expandvars` and `expanduser` until interpolation stops having
     any effect.
+
+    Args:
+        - env_var (Optional[str]): Value that potentially has references
+            to system variables
+
+    Returns:
+        - Optional[Union[bool, int, float, str]]: Value with references
+            to system variables expanded; cast to appropriate python types.
     """
     if not env_var or not isinstance(env_var, str):
         return env_var
