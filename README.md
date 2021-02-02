@@ -77,6 +77,35 @@ config.dev_only # True
 config.prod_only # True
 ```
 
+#### Short Lived Configurations
+For processes that depend on a static set of values, but the values depend on some inputs, utilizing a short lived configuration should be considered. The following scenarios are good use cases for these:
+* Injecting credentials into a process
+* Values are passed via CLI
+
+You should create a "base" configuration that holds either default values (if the values aren't sensitive) or placeholders for those that are. This prevents Python from complaining about missing attributes on the configuration, as well as helps other developers understand which keys are expected on your configuration.
+
+To utilize a short lived configuration, utilize the `dotcfg.utils.set_temporary_config` function.
+
+```python
+# src/__init__.py
+
+# Assuming your `config` object is loaded in a different file
+from src.configuration import config
+# Assuming your config has config.database.username and password present
+
+# src/main.py
+from dotcfg.utils import set_temporary_config
+from src import config
+from src.your_code import get_sensitive_credentials
+
+# Assuming we return {"username": "db username", "password": "db password"}
+database_credentials = get_sensitive_credentials()
+
+with set_temporary_config({"database.username": database_credentials["username"], "database.password": database_credentials["password"]}, set_location=src):
+    config.database.username # "db username"
+    config.database.password # "db password"
+```
+
 ##### Best Practices
 A best practice for loading configurations across multiple environments are to have one "base" configuration, which contains all of the keys so it's easier for yourself and other developers to know which fields should be populated on the configuration object.
 
@@ -155,4 +184,27 @@ host = "0.0.0.0"
     [services.other_database]
     # References can reference references
     host = "${services.database.host}"
+```
+
+#### Partial Set Temporary Config
+`set_temporary_config` is a generic function to set a temporary configuration onto a module. Since the package can't know the name of your module, it accepts a required argument `set_location`. To simplify the signature of this function, a good solution is to partial it.
+
+```python
+# src/utilities/configuration.py
+import functools
+
+from dotcfg.utils import set_temporary_config as generic_set_temporary_config
+
+import src
+
+set_temporary_config = functools.partial(generic_set_temporary_config, set_location=src, set_name="config")
+```
+
+You can now invoke your `set_temporary_config` from `src/utilities/configuration.py` like follows:
+
+```python
+from src.utilities.configuration import set_temporary_config
+
+with set_temporary_config({"database.username": "db username"}):
+    ...
 ```
