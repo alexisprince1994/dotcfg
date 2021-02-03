@@ -18,7 +18,7 @@ exclude = '''
 
 [tool.poetry]
 name = "dotcfg"
-version = "0.1.1"
+version = "0.1.2"
 description = ""
 authors = ["Alex Cano <alexjcano1994@gmail.com>"]
 
