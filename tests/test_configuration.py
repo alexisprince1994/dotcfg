@@ -6,7 +6,9 @@ import pytest
 
 from dotcfg import collections
 from dotcfg.configuration import (
+    interpolate_config,
     interpolate_env_vars,
+    load_configuration,
     replace_variable_references,
     string_to_type,
     validate_config,
@@ -351,3 +353,31 @@ class TestInterpolateEnvVars:
         result = cast(str, interpolate_env_vars("$HOME/$PROJECT_NAME"))
         assert "$HOME" not in result
         assert "$PROJECT_NAME" not in result
+
+
+class TestInterpolateConfig:
+    def test_ignores_environment_if_not_provided(self, monkeypatch):
+        monkeypatch.setenv("DOTCFG__SETTING", "FOO")
+        config = {"setting": "BAR"}
+        cfg = interpolate_config(config)
+        assert cfg.setting == "BAR"
+
+    def test_reads_env_if_provided(self, monkeypatch):
+        monkeypatch.setenv("DOTCFG__SETTING", "FOO")
+        cfg = interpolate_config({}, env_var_prefix="DOTCFG")
+        assert cfg.setting == "FOO"
+
+    def test_overwrites_from_env(self, monkeypatch):
+        monkeypatch.setenv("DOTCFG__SETTING", "FOO")
+        config = {"setting": "BAR"}
+        cfg = interpolate_config(config, env_var_prefix="DOTCFG")
+        assert cfg.setting == "FOO"
+
+
+class TestLoadConfiguration:
+    def test_prefers_env_vars(self, monkeypatch, testing_config: str):
+
+        monkeypatch.setenv("DOTCFG__ENV", "OVERRIDE")
+
+        config = load_configuration(testing_config, env_var_prefix="DOTCFG")
+        assert config.env == "OVERRIDE"

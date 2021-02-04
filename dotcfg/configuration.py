@@ -45,6 +45,7 @@ def interpolate_config(
 
     if env_var_prefix is not None:
         env_vars = load_environment_variables(env_var_prefix)
+        flat_config = {**flat_config, **env_vars}
 
     # Interpolate any environment variables referenced
     for key, value in list(flat_config.items()):
