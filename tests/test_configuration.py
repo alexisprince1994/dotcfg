@@ -373,6 +373,24 @@ class TestInterpolateConfig:
         cfg = interpolate_config(config, env_var_prefix="DOTCFG")
         assert cfg.setting == "FOO"
 
+    def test_replaces_references(self):
+        config = {"x": 1, "y": "${x}"}
+
+        cfg = interpolate_config(config)
+        assert cfg.x == 1
+        assert cfg.y == 1
+
+    def test_doesnt_replace_references(self):
+
+        config = {"x": 1, "y": "${x}"}
+        cfg = interpolate_config(config, replace_references=False)
+        assert cfg.x == 1
+        assert cfg.y == "${x}"
+
+        second = interpolate_config(cfg, replace_references=True)
+        assert second.x == 1
+        assert second.y == second.x
+
 
 class TestLoadConfiguration:
     def test_prefers_env_vars(self, monkeypatch, testing_config: str):

@@ -21,7 +21,9 @@ def load_toml(path: str) -> dict:
 
 
 def interpolate_config(
-    config: dict, env_var_prefix: Optional[str] = None
+    config: dict,
+    replace_references: bool = True,
+    env_var_prefix: Optional[str] = None,
 ) -> collections.Config:
     """
     Processes the initial input configuration and replaces
@@ -30,6 +32,8 @@ def interpolate_config(
 
     Args:
         - config (dict): Loaded data from a configuration file
+        - replace_references (bool): Whether to replace variable references
+            in the final merged config.
         - env_var_prefix (Optional[str]): Environment variable prefix to
             load from the current environment.
 
@@ -55,7 +59,8 @@ def interpolate_config(
 
         flat_config[key] = value
 
-    flat_config = replace_variable_references(flat_config)
+    if replace_references:
+        flat_config = replace_variable_references(flat_config)
     return cast(
         collections.Config,
         collections.flatdict_to_dict(flat_config, dct_class=collections.Config),
@@ -286,7 +291,10 @@ def validate_config(config: collections.Config) -> None:
 
 
 def load_configuration(
-    default_path: str, *paths: str, env_var_prefix: Optional[str] = None
+    default_path: str,
+    *paths: str,
+    env_var_prefix: Optional[str] = None,
+    replace_references: bool = True,
 ) -> collections.Config:
     """
     Main entrypoint to loading a configuration set.
@@ -299,6 +307,10 @@ def load_configuration(
         - env_var_prefix (Optional[str]): An environment variable prefix
             to read values from. Environment variables with naming convention
             "<prefix>__[<optional section>]__[<optional subsection>]__key"
+        - replace_references (bool): Whether to resolve variable references after
+            loading all values from provided config files and environment. If you need
+            to reference a value you'll merge after initial load, you may want this
+            to be `False`.
 
     Returns:
         - collections.Config: Dictionary supporting dot access
@@ -321,7 +333,11 @@ def load_configuration(
             dict, collections.merge_dicts(default_config, config_chunk)
         )
 
-    config = interpolate_config(default_config, env_var_prefix=env_var_prefix)
+    config = interpolate_config(
+        default_config,
+        replace_references=replace_references,
+        env_var_prefix=env_var_prefix,
+    )
 
     validate_config(config)
     return config
