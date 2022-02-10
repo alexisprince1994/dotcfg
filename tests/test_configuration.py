@@ -1,6 +1,7 @@
 import os
+import pathlib
 import tempfile
-from typing import cast
+from typing import Type, cast
 
 import pytest
 
@@ -399,3 +400,10 @@ class TestLoadConfiguration:
 
         config = load_configuration(testing_config, env_var_prefix="DOTCFG")
         assert config.env == "OVERRIDE"
+
+    @pytest.mark.parametrize("input_type", [str, pathlib.Path])
+    def test_reads_from_str_or_path(self, testing_config: str, input_type: Type):
+
+        config_location = input_type(testing_config)
+        config = load_configuration(config_location)
+        assert config.env == "TESTING"
