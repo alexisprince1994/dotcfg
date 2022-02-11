@@ -1,5 +1,6 @@
 __version__ = "0.1.4"
 import dotcfg.collections
+import dotcfg.configuration
 import dotcfg.engine
 import dotcfg.errors
 import dotcfg.types
