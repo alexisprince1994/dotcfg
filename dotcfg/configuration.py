@@ -1,23 +1,13 @@
 import os
+import pathlib
 import re
 from ast import literal_eval
 from typing import Any, Dict, List, Optional, Union, cast
 
-import toml
-
-from dotcfg import collections
+from dotcfg import collections, engine
+from dotcfg.types import StrPath
 
 INTERPOLATION_REGEX = re.compile(r"\${(.[^${}]*)}")
-
-
-def load_toml(path: str) -> dict:
-    """
-    Loads a config dictionary from TOML
-    """
-    return {
-        key: value
-        for key, value in toml.load(cast(str, interpolate_env_vars(path))).items()
-    }
 
 
 def interpolate_config(
@@ -291,18 +281,19 @@ def validate_config(config: collections.Config) -> None:
 
 
 def load_configuration(
-    default_path: str,
-    *paths: str,
+    default_path: StrPath,
+    *paths: StrPath,
     env_var_prefix: Optional[str] = None,
     replace_references: bool = True,
+    file_type: engine.SupportedFileTypes = engine.SupportedFileTypes.AUTO,
 ) -> collections.Config:
     """
     Main entrypoint to loading a configuration set.
 
     Args:
-        - default_path (str): Path containing location to configuration
+        - default_path (StrPath): Path containing location to configuration
             with default values
-        - *paths (str): Positional paths that contain configuration items
+        - *paths (StrPath): Positional paths that contain configuration items
             that overwrite (in priority order) the previous configuration.
         - env_var_prefix (Optional[str]): An environment variable prefix
             to read values from. Environment variables with naming convention
@@ -311,11 +302,16 @@ def load_configuration(
             loading all values from provided config files and environment. If you need
             to reference a value you'll merge after initial load, you may want this
             to be `False`.
+        - file_type (engine.SupportedFileType): Explicitly set the type of the
+            file being read. If not provided, attempts to autodiscover will occur.
 
     Returns:
         - collections.Config: Dictionary supporting dot access
     """
-    default_config = load_toml(default_path)
+
+    default_config = engine.read_configuration_file(
+        pathlib.Path(default_path), file_format=file_type
+    )
 
     # For each specified path, we assume that the later they are in the
     # provided argument list, the higher priority they are, with
@@ -323,7 +319,9 @@ def load_configuration(
 
     for path in paths:
         try:
-            config_chunk = load_toml(path)
+            config_chunk = engine.read_configuration_file(
+                pathlib.Path(path), file_format=file_type
+            )
         except FileNotFoundError as exc:
             raise FileNotFoundError(
                 f"Configuration file {path} was specified but does not exist."

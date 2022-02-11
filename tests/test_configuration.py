@@ -1,9 +1,11 @@
+import json
 import os
 import pathlib
 import tempfile
 from typing import Type, cast
 
 import pytest
+import toml
 
 from dotcfg import collections
 from dotcfg.configuration import (
@@ -16,49 +18,58 @@ from dotcfg.configuration import (
 )
 
 
-@pytest.fixture(autouse=True)
-def env(monkeypatch):
-    with tempfile.TemporaryDirectory() as temp_dir:
-        project_name = "DOTCFG"
-        monkeypatch.setenv("HOME", temp_dir)
-        monkeypatch.setenv("PROJECT_NAME", project_name)
-        monkeypatch.setenv(f"{project_name}__ENVIRONMENT", "TESTING")
-        monkeypatch.setenv(
-            f"{project_name}__TESTING_CONFIG_PATH", "$HOME/testing_config.toml"
-        )
-        monkeypatch.setenv(
-            f"{project_name}__DEVELOPMENT_CONFIG_PATH", "$HOME/dev_config.toml"
-        )
-        monkeypatch.setenv(
-            f"{project_name}__PRODUCTION_CONFIG_PATH", "$HOME/prod_config.toml"
-        )
-        monkeypatch.setenv(
-            f"{project_name}__DEFAULT_CONFIG_PATH", "$HOME/default_config.toml"
-        )
+@pytest.fixture
+def temp_dir():
+    with tempfile.TemporaryDirectory() as td:
+        yield td
 
-        yield temp_dir
+
+@pytest.fixture(autouse=True)
+def env(monkeypatch, temp_dir: str):
+
+    project_name = "DOTCFG"
+    monkeypatch.setenv("HOME", temp_dir)
+    monkeypatch.setenv("PROJECT_NAME", project_name)
+    monkeypatch.setenv(f"{project_name}__ENVIRONMENT", "TESTING")
+    monkeypatch.setenv(
+        f"{project_name}__TESTING_CONFIG_PATH", "$HOME/testing_config.toml"
+    )
+    monkeypatch.setenv(
+        f"{project_name}__DEVELOPMENT_CONFIG_PATH", "$HOME/dev_config.toml"
+    )
+    monkeypatch.setenv(
+        f"{project_name}__PRODUCTION_CONFIG_PATH", "$HOME/prod_config.toml"
+    )
+    monkeypatch.setenv(
+        f"{project_name}__DEFAULT_CONFIG_PATH", "$HOME/default_config.toml"
+    )
+
+    yield temp_dir
 
 
 @pytest.fixture
-def testing_config(env):
+def testing_config_contents():
+    return {
+        "env": "TESTING",
+        "database": {
+            "user": "testing user",
+            "password": "testing password",
+            "host": "testing host",
+            "port": "testing port",
+            "db": "testing db",
+        },
+    }
+
+
+@pytest.fixture
+def testing_config(env, testing_config_contents: dict):
     project_name = os.environ.get("PROJECT_NAME")
     file_path = os.path.expanduser(
         os.path.expandvars(os.environ[f"{project_name}__TESTING_CONFIG_PATH"])
     )
 
-    testing_cfg = b"""
-
-    env = "TESTING"
-
-    [database]
-    user = "testing user"
-    password = "testing password"
-    host = "testing host"
-    port = "testing port"
-    db = "testing db"
-    """
-    with open(file_path, "wb") as f:
-        f.write(testing_cfg)
+    with open(file_path, "w") as f:
+        toml.dump(testing_config_contents, f)
 
     yield file_path
 
@@ -407,3 +418,11 @@ class TestLoadConfiguration:
         config_location = input_type(testing_config)
         config = load_configuration(config_location)
         assert config.env == "TESTING"
+
+    def test_reads_json_file(self, testing_config_contents: dict, temp_dir: str):
+
+        location = os.path.join(temp_dir, "testing_config.json")
+        with open(location, "w") as f:
+            json.dump(testing_config_contents, f)
+
+        config = load_configuration(location)
