@@ -1,4 +1,4 @@
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 import dotcfg.collections
 import dotcfg.configuration
 import dotcfg.engine
